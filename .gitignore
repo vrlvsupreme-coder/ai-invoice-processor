@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+env/
+
+# Environment & Secrets (NEVER COMMIT THESE!)
+.env
+credentials.json
+
+# Database (local only)
+*.db
+*.sqlite3
+
+# Invoices folder (uploaded files, not for git)
+invoices/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Scratch files
+scratch/
+
+env

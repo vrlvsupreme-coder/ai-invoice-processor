@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity | AI Invoice Processor</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="background-radial"></div>
+    <div class="glass-container">
+        <header>
+            <div class="logo">
+                <span class="icon">📄</span>
+                <h1>Antigravity <span class="accent">AI</span></h1>
+            </div>
+            <div class="status-badge" id="server-status">
+                <span class="dot"></span> System Online
+            </div>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <div class="section-header">
+                    <h2>Multi-Invoice Upload</h2>
+                    <p>Select or drag-and-drop PDF, JPG, or PNG invoices.</p>
+                </div>
+
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-zone-content">
+                        <span class="upload-icon">📤</span>
+                        <p>Drag files here or <strong>browse</strong></p>
+                        <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png" hidden>
+                    </div>
+                </div>
+
+                <div id="file-list" class="file-list">
+                    <!-- Files will be listed here -->
+                </div>
+
+                <button id="upload-btn" class="primary-btn disabled" disabled>
+                    Process Invoices
+                </button>
+            </section>
+
+            <section class="activity-section">
+                <div class="section-header">
+                    <h2>Recent Activity</h2>
+                    <div class="header-actions">
+                        <button id="export-btn" class="secondary-btn" title="Export all to Excel">📥 Export</button>
+                        <button id="refresh-btn" class="icon-btn">🔄</button>
+                    </div>
+                </div>
+                <div id="activity-feed" class="activity-feed">
+                    <div class="loading-state">Fetching latest records...</div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <div class="footer-links">
+                <a href="/docs" target="_blank">API Docs</a>
+                <a href="https://docs.google.com/spreadsheets/d/16WkRqeLBdGjCrP4MfGE9sN4lE5Rdg-n_vx6elZ6sn6A/"
+                    target="_blank">Google Sheet</a>
+            </div>
+            <p>&copy; 2026 Antigravity AI Processing</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
