@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # ── System dependencies (for pypdfium2, Pillow) ─────────────────────────────
 RUN apt-get update && apt-get install -y \
     libglib2.0-0 \
-    libgl1-mesa-glx \
+    libgl1 \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,4 +25,4 @@ RUN mkdir -p invoices
 EXPOSE 7860
 
 # ── Start server ─────────────────────────────────────────────────────────────
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-7860}"]
