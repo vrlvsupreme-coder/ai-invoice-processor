@@ -19,7 +19,7 @@ A 24/7 AI-powered web application for uploading, extracting, verifying, and sync
 - 🔄 **Duplicate Detection:** Prevents re-processing of the same invoice (by filename, hash, and GSTIN+InvoiceNo)
 
 ## Environment Secrets (Required)
-Set these as **Secrets** in your Hugging Face Space settings:
+Set these as **Secrets/Environment Variables** in your hosting platform:
 
 | Secret Name | Description |
 |---|---|
@@ -39,6 +39,5 @@ cp env .env
 # Run server locally
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-#   a i - i n v o i c e - p r o c e s s o r 
- 
- 
+
+## ai-invoice-processor
