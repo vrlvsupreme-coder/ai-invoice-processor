@@ -29,6 +29,8 @@ Specific Guidance for Indian GST Invoices:
 - "place_of_supply": State name or code where the supply is made.
 - "igst": Integrated Tax. If IGST is present, SGST/CGST will usually be 0 or empty.
 - "hsn_sac": Extract the HSN or SAC code for each item.
+- "vendor_part_no": The vendor's internal part number, often labeled "VEND PART", "Vendor Part No", or "Part No" on the invoice — distinct from the generic/description part number.
+
 
 The JSON must follow this exact structure:
 
@@ -53,6 +55,7 @@ The JSON must follow this exact structure:
     {
       "sr_no": "...",
       "part_no_or_generic_name": "...",
+      "vendor_part_no": "...",
       "description": "...",
       "hsn_sac": "...",
       "qty": 0.0,

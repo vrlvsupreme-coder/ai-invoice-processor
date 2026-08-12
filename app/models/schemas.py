@@ -36,6 +36,7 @@ def clean_numeric(v: Any) -> float:
 class InvoiceLineItemRaw(BaseModel):
     sr_no: Optional[str] = None
     part_no_or_generic_name: Optional[str] = None
+    vendor_part_no: Optional[str] = None
     description: Optional[str] = None
     hsn_sac: Optional[str] = None
     qty: Optional[float] = None
