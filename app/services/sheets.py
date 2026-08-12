@@ -41,7 +41,7 @@ class GoogleSheetsService:
                     logger.info("Creating 'Invoice Line Items' sheet.")
                     self.items_sheet = self.doc.add_worksheet(title="Invoice Line Items", rows="100", cols="19")
                     items_headers = [
-                        "Invoice No (Ref)", "Sr. No", "Part No / Generic Name", "Vendor Part No", "Description", "HSN/SAC", "Qty", "Rate", "Basic Amoun", "Discount Amount", "Type Amount", "Taxable Amount", "SGST Rate", "SGST Amount", "CGST Rate", "CGST Amount", "IGST Rate", "IGST Amount", "Invoice Amount"
+                        "Invoice No (Ref)", "Sr. No", "Part No / Generic Name", "Vendor Part No", "Description", "HSN/SAC", "Qty", "Rate", "Basic Amount", "Discount Type", "Discount Amount", "Type Amount", "Taxable Amount", "SGST Rate", "SGST Amount", "CGST Rate", "CGST Amount", "IGST Rate", "IGST Amount", "Invoice Amount"
                     ]
                     self.items_sheet.append_row(items_headers)
                     
