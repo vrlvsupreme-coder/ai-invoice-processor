@@ -29,8 +29,15 @@ class Settings(BaseSettings):
 
     @property
     def fallback_models(self) -> list[str]:
-        # Priority order of Gemini models for OCR data extraction
-        default_chain = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-flash-latest"]
+        # Priority order of active Gemini models for OCR data extraction
+        default_chain = [
+            "gemini-2.5-flash",
+            "gemini-flash-latest",
+            "gemini-2.5-pro",
+            "gemini-3.7-flash",
+            "gemini-3.5-flash",
+            "gemini-pro-latest"
+        ]
         if self.GEMINI_MODEL_NAME and self.GEMINI_MODEL_NAME not in default_chain:
             return [self.GEMINI_MODEL_NAME] + default_chain
         # Ensure preferred model is first
