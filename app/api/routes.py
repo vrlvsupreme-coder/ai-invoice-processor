@@ -76,7 +76,8 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
                 filename=filename,
                 file_hash=file_hash,
                 raw_data=raw_data,
-                raw_ai_response=raw_ai_response
+                raw_ai_response=raw_ai_response,
+                allow_duplicates=is_allow_dup
             )
             
             # 3. Google Sheets Integration (Only if NOT a duplicate invoice)

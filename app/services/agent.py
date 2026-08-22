@@ -17,7 +17,14 @@ class AIVerificationAgent:
     def __init__(self, db_service: Optional[DatabaseService] = None):
         self.db_service = db_service
 
-    def run_pipeline(self, filename: str, file_hash: str, raw_data: InvoiceHeaderRaw, raw_ai_response: Optional[str] = None) -> AgentVerificationResult:
+    def run_pipeline(
+        self, 
+        filename: str, 
+        file_hash: str, 
+        raw_data: InvoiceHeaderRaw, 
+        raw_ai_response: Optional[str] = None,
+        allow_duplicates: bool = False
+    ) -> AgentVerificationResult:
         # 0. Check for OCR failure
         if raw_data.ocr_failed:
             return AgentVerificationResult(
@@ -50,11 +57,12 @@ class AIVerificationAgent:
             status = VerificationStatus.CALCULATION_ERROR
             errors.extend(calc_errors)
 
-        # 5. Duplicate Detection (Real DB Check)
-        is_dup = self._check_duplicates(cleaned)
-        if is_dup:
-            status = VerificationStatus.DUPLICATE
-            errors.append(f"Duplicate invoice detected in local database (Vendor GSTIN: {cleaned.vendor_gstin}, No: {cleaned.invoice_no}).")
+        # 5. Duplicate Detection (Real DB Check - skipped if allow_duplicates=True)
+        if not allow_duplicates:
+            is_dup = self._check_duplicates(cleaned)
+            if is_dup:
+                status = VerificationStatus.DUPLICATE
+                errors.append(f"Duplicate invoice detected in local database (Vendor GSTIN: {cleaned.vendor_gstin}, No: {cleaned.invoice_no}).")
 
         # 6. Fraud / Suspicious Rules
         is_sus, sus_errors = self._check_fraud_suspicious(cleaned)
