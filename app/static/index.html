@@ -43,13 +43,13 @@
                     <!-- Files will be listed here -->
                 </div>
 
-                <label class="toggle-option" for="allow-duplicates-toggle">
-                    <span class="switch">
+                <div class="toggle-option" id="toggle-option-container">
+                    <label class="switch" for="allow-duplicates-toggle">
                         <input type="checkbox" id="allow-duplicates-toggle">
                         <span class="slider"></span>
-                    </span>
-                    <span class="toggle-label">Allow Duplicate Invoices</span>
-                </label>
+                    </label>
+                    <span class="toggle-label" id="toggle-label-text">Allow Duplicate Invoices</span>
+                </div>
 
                 <button id="upload-btn" class="primary-btn disabled" disabled>
                     Process Invoices

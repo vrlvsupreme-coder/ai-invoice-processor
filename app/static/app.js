@@ -67,6 +67,26 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFileList();
     };
 
+    // --- toggle option container click logic ---
+    const toggleContainer = document.getElementById('toggle-option-container');
+    const toggleCheckbox = document.getElementById('allow-duplicates-toggle');
+
+    if (toggleContainer && toggleCheckbox) {
+        toggleContainer.addEventListener('click', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.closest('.switch')) return;
+            toggleCheckbox.checked = !toggleCheckbox.checked;
+            toggleCheckbox.dispatchEvent(new Event('change'));
+        });
+
+        toggleCheckbox.addEventListener('change', () => {
+            if (toggleCheckbox.checked) {
+                toggleContainer.classList.add('active');
+            } else {
+                toggleContainer.classList.remove('active');
+            }
+        });
+    }
+
     // --- upload logic ---
     uploadBtn.addEventListener('click', async () => {
         if (selectedFiles.length === 0) return;
@@ -74,8 +94,8 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadBtn.disabled = true;
         uploadBtn.innerText = 'Uploading...';
 
-        const allowDuplicatesToggle = document.getElementById('allow-duplicates-toggle');
-        const allowDuplicates = allowDuplicatesToggle ? allowDuplicatesToggle.checked : false;
+        const allowDuplicates = toggleCheckbox ? Boolean(toggleCheckbox.checked) : false;
+        console.log('Uploading with allowDuplicates =', allowDuplicates);
 
         const formData = new FormData();
         selectedFiles.forEach(file => {
