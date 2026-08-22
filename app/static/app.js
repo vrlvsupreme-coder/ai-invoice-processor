@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFiles.forEach(file => {
             formData.append('files', file);
         });
-        formData.append('allow_duplicates', allowDuplicates);
+        formData.append('allow_duplicates', allowDuplicates ? 'true' : 'false');
 
         try {
             const response = await fetch('/api/v1/upload/', {
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 selectedFiles = [];
                 updateFileList();
                 // Refresh activity after a delay to show queued status (if DB updated)
-                setTimeout(fetchActivity, 2000);
+                setTimeout(fetchActivity, 1000);
             } else {
                 showToast(`❌ Error: ${result.detail || 'Upload failed'}`, 'error');
             }
@@ -126,7 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.className = 'activity-card';
 
                 const statusClass = getStatusClass(item.verification_status);
-                const displayNo = item.invoice_no || 'Processing...';
+                let displayNo = item.invoice_no;
+                if (!displayNo || displayNo === 'Processing...') {
+                    if (item.verification_status && item.verification_status.toUpperCase().includes('DUPLICATE')) {
+                        displayNo = 'DUPLICATE';
+                    } else {
+                        displayNo = 'Processing...';
+                    }
+                }
                 const displayVendor = item.vendor || item.file_name;
                 const displayDate = item.processed_at ? new Date(item.processed_at).toLocaleString() : 'Just now';
 

@@ -31,19 +31,29 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
     Background worker function that runs the full pipeline for one file,
     throttled to safely process large multi-invoice uploads (30-40 files/day).
     """
+    is_allow_dup = str(allow_duplicates).lower() in ["true", "1", "yes"]
+    ran_ocr = False
     async with batch_semaphore:
         try:
             file_hash = hashlib.sha256(content).hexdigest()
             
             # 0. Duplicate Checks (Filename & Hash) before extraction (skipped if allow_duplicates=True)
-            if not allow_duplicates:
+            if not is_allow_dup:
                 is_dup_file = db_service.is_file_processed(filename)
                 is_dup_hash = db_service.is_hash_processed(file_hash)
                 if is_dup_file or is_dup_hash:
                     dup_reason = "Filename already in database" if is_dup_file else "Content hash duplicate match"
-                    logger.info(f"Duplicate detected for {filename} ({dup_reason}). Recording DUPLICATE status.")
+                    logger.info(f"Duplicate detected for {filename} ({dup_reason}). Recording DUPLICATE status instantly.")
+                    
+                    # Extract vendor display name cleanly from filename
+                    clean_vendor_name = filename.rsplit('.', 1)[0]
+                    
                     dup_result = AgentVerificationResult(
-                        cleaned_data=InvoiceHeaderVerified(file_name=filename, vendor=filename.replace(".pdf", "").replace(".PDF", "")),
+                        cleaned_data=InvoiceHeaderVerified(
+                            invoice_no="DUPLICATE",
+                            vendor=clean_vendor_name,
+                            file_name=filename
+                        ),
                         verification_status=VerificationStatus.DUPLICATE,
                         errors=[f"Duplicate invoice detected ({dup_reason})."],
                         confidence_score=100.0,
@@ -58,6 +68,7 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
                 logger.info(f"Allowing duplicate invoice upload for {filename} (allow_duplicates=True).")
 
             # 1. OCR / Extraction (Gemini AI) with Multi-Model Fallback
+            ran_ocr = True
             raw_data, raw_ai_response = await extract_data_from_file(filename, content, content_type)
             
             # 2. AI Verification Agent Pipeline
@@ -81,15 +92,16 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
         except Exception as e:
             logger.error(f"Error processing {filename}: {e}")
         finally:
-            # Rate pacing delay to safely stay under Gemini Free Tier limits during 30-40 batch uploads
-            await asyncio.sleep(4)
+            # Rate pacing delay only applies if we invoked Gemini API to stay under free tier limits
+            if ran_ocr:
+                await asyncio.sleep(4)
 
 
 @router.post("/upload/", tags=["Invoices"])
 async def upload_invoices(
     background_tasks: BackgroundTasks, 
     files: List[UploadFile] = File(...),
-    allow_duplicates: bool = Form(False)
+    allow_duplicates: str = Form("false")
 ):
     """
     Upload Multiple Invoices (PDF/JPG/PNG).
@@ -103,6 +115,8 @@ async def upload_invoices(
     accepted_files = []
     rejected_files = []
     
+    is_allow_dup = str(allow_duplicates).lower() in ["true", "1", "yes"]
+    
     for file in files:
         if file.content_type not in accepted_content_types:
             rejected_files.append({"filename": file.filename, "reason": "Unsupported file type"})
@@ -114,7 +128,7 @@ async def upload_invoices(
         content = await file.read()
         
         # Add to background worker with allow_duplicates option
-        background_tasks.add_task(process_invoice, file.filename, content, file.content_type, allow_duplicates)
+        background_tasks.add_task(process_invoice, file.filename, content, file.content_type, is_allow_dup)
 
     return {
         "message": "Files queued for processing successfully",
