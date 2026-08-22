@@ -2,11 +2,12 @@ from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException,
 from typing import List
 import logging
 import hashlib
+from datetime import datetime
 
 from app.services.ocr import extract_data_from_file
 from app.services.agent import AIVerificationAgent
 from app.services.sheets import GoogleSheetsService
-from app.models.schemas import VerificationStatus
+from app.models.schemas import VerificationStatus, AgentVerificationResult, InvoiceHeaderVerified
 
 from app.services.database import DatabaseService
 from app.services.export import ExportService
@@ -36,12 +37,22 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
             
             # 0. Duplicate Checks (Filename & Hash) before extraction (skipped if allow_duplicates=True)
             if not allow_duplicates:
-                if db_service.is_file_processed(filename):
-                    logger.info(f"Skipping extraction for {filename} - filename already in database.")
-                    return
-
-                if db_service.is_hash_processed(file_hash):
-                    logger.info(f"Skipping extraction for {filename} - content duplicate (hash match).")
+                is_dup_file = db_service.is_file_processed(filename)
+                is_dup_hash = db_service.is_hash_processed(file_hash)
+                if is_dup_file or is_dup_hash:
+                    dup_reason = "Filename already in database" if is_dup_file else "Content hash duplicate match"
+                    logger.info(f"Duplicate detected for {filename} ({dup_reason}). Recording DUPLICATE status.")
+                    dup_result = AgentVerificationResult(
+                        cleaned_data=InvoiceHeaderVerified(file_name=filename, vendor=filename.replace(".pdf", "").replace(".PDF", "")),
+                        verification_status=VerificationStatus.DUPLICATE,
+                        errors=[f"Duplicate invoice detected ({dup_reason})."],
+                        confidence_score=100.0,
+                        review_timestamp=datetime.now().isoformat(),
+                        file_name=filename,
+                        file_hash=file_hash,
+                        raw_ai_response="DUPLICATE_SKIPPED"
+                    )
+                    db_service.save_invoice(dup_result)
                     return
             else:
                 logger.info(f"Allowing duplicate invoice upload for {filename} (allow_duplicates=True).")
