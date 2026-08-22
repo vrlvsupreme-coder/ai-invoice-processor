@@ -121,3 +121,36 @@ async def export_to_excel():
         'Content-Disposition': 'attachment; filename="invoices_export.xlsx"'
     }
     return Response(content, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@router.post("/retry-pending/", tags=["Invoices"])
+async def retry_pending_invoices(background_tasks: BackgroundTasks):
+    """
+    Re-queues all invoices in 'Pending / Incomplete' or 'FAILED OCR' state for processing using the multi-model fallback chain.
+    """
+    import os
+    pending_invoices = db_service.get_pending_invoices()
+    if not pending_invoices:
+        return {"message": "No pending or failed invoices to retry."}
+    
+    requeued_files = []
+    missing_files = []
+    
+    invoices_dir = os.path.join(os.getcwd(), "invoices")
+    
+    for inv in pending_invoices:
+        file_path = os.path.join(invoices_dir, inv.file_name)
+        if os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                content = f.read()
+            content_type = "application/pdf" if inv.file_name.lower().endswith(".pdf") else "image/jpeg"
+            background_tasks.add_task(process_invoice, inv.file_name, content, content_type)
+            requeued_files.append(inv.file_name)
+        else:
+            missing_files.append(inv.file_name)
+
+    return {
+        "message": f"Queued {len(requeued_files)} pending invoices for retry with multi-model fallback.",
+        "requeued": requeued_files,
+        "missing_on_disk": missing_files
+    }
+

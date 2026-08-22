@@ -91,21 +91,19 @@ Special Layout Recognition (Vendor-Aware Hints):
 
 async def extract_data_from_file(filename: str, content: bytes, content_type: Optional[str] = None) -> tuple[InvoiceHeaderRaw, str]:
     """
-    Real OCR & AI Data Extraction logic using Gemini with multi-page support.
-    Accepts raw content bytes to avoid "closed file" errors in background tasks.
+    Real OCR & AI Data Extraction logic using Gemini with multi-page support,
+    multi-model fallback chain, and multi-key rotation to handle 429 quota limits.
     Returns: (ParsedModel, RawAIResponseText)
     """
     logger.info(f"Extracting data from file: {filename} (Size: {len(content)} bytes)")
     
-    if not settings.GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not found. Returning failed state.")
+    keys = settings.api_keys
+    if not keys:
+        logger.warning("No GEMINI_API_KEY found in settings. Returning failed state.")
         return InvoiceHeaderRaw(ocr_failed=True, ocr_error_message="GEMINI_API_KEY is missing."), "NO_API_KEY"
 
     text_response = "NO_RESPONSE"
     try:
-        # Prepare payload for Gemini
-        logger.info("Initializing Gemini Model...")
-        model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
         content_parts = [PROMPT]
         
         # Handle PDF vs Image
@@ -137,25 +135,44 @@ async def extract_data_from_file(filename: str, content: bytes, content_type: Op
                 "data": content
             })
 
-        # Run AI Inference with automatic retry on 429 Rate Limit errors
-        logger.info("Running AI Inference (Gemini)...")
+        # Run AI Inference with Multi-Model Fallback and Key Rotation
+        models_to_try = settings.fallback_models
+        logger.info(f"Starting AI Inference. Candidate models: {models_to_try}")
+        
         loop = asyncio.get_event_loop()
-        
-        for attempt in range(1, MAX_RETRIES + 1):
-            try:
-                response = await loop.run_in_executor(None, lambda: model.generate_content(content_parts))
-                break  # Success
-            except Exception as api_error:
-                error_str = str(api_error)
-                if "429" in error_str and attempt < MAX_RETRIES:
-                    # Parse the suggested retry delay from the error message
-                    match = re.search(r'retry_delay\s*\{[^}]*seconds:\s*(\d+)', error_str)
-                    wait_seconds = int(match.group(1)) + 5 if match else 30
-                    logger.warning(f"Rate limited (429). Waiting {wait_seconds}s before retry {attempt}/{MAX_RETRIES}...")
-                    await asyncio.sleep(wait_seconds)
-                else:
-                    raise  # Re-raise for non-429 errors or if retries exhausted
-        
+        response = None
+        last_error = None
+
+        for key_idx, api_key in enumerate(keys):
+            genai.configure(api_key=api_key)
+            for model_name in models_to_try:
+                logger.info(f"Attempting extraction with model '{model_name}' (Key #{key_idx + 1})...")
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = await loop.run_in_executor(None, lambda: model.generate_content(content_parts))
+                    logger.info(f"Successfully received response from model '{model_name}'.")
+                    break # Model succeeded!
+                except Exception as api_error:
+                    last_error = api_error
+                    error_str = str(api_error)
+                    if "429" in error_str or "Quota exceeded" in error_str or "ResourceExhausted" in error_str:
+                        logger.warning(
+                            f"Quota/Rate limit (429) hit for model '{model_name}' (Key #{key_idx + 1}). "
+                            f"Falling back to next candidate..."
+                        )
+                        # Optional short sleep before trying fallback model to prevent burst back-to-back hits
+                        await asyncio.sleep(2)
+                        continue
+                    else:
+                        logger.error(f"Non-quota error encountered with model '{model_name}': {api_error}")
+                        # For non-429 errors (e.g. invalid argument), also attempt next model before giving up
+                        continue
+            if response is not None:
+                break # Key & model combination succeeded!
+
+        if response is None:
+            raise last_error or RuntimeError("All Gemini models and API keys failed extraction.")
+
         text_response = response.text.strip()
         logger.info("Received AI response.")
         
@@ -173,3 +190,4 @@ async def extract_data_from_file(filename: str, content: bytes, content_type: Op
     except Exception as e:
         logger.error(f"Gemini Extraction failed at stage: {type(e).__name__} for {filename}. Details: {e}")
         return InvoiceHeaderRaw(ocr_failed=True, ocr_error_message=f"Extraction Error: {str(e)}"), text_response
+

@@ -154,3 +154,13 @@ class DatabaseService:
         with self.get_session() as session:
             invoices = session.query(Invoice).order_by(Invoice.processed_at.desc()).limit(limit).all()
             return invoices
+
+    def get_pending_invoices(self) -> List[Invoice]:
+        """
+        Retrieves all invoices with status 'Pending / Incomplete' or 'FAILED OCR'.
+        """
+        with self.get_session() as session:
+            return session.query(Invoice).filter(
+                Invoice.verification_status.in_(["Pending / Incomplete", "FAILED OCR", "INCOMPLETE"])
+            ).all()
+

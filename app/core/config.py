@@ -15,8 +15,28 @@ class Settings(BaseSettings):
 
     # Gemini AI Configuration
     GEMINI_API_KEY: Optional[str] = None
+    GEMINI_API_KEYS_STR: Optional[str] = os.getenv("GEMINI_API_KEYS", None)
     GEMINI_MODEL_NAME: str = os.getenv("GEMINI_MODEL_NAME", "gemini-1.5-flash")
     
+    @property
+    def api_keys(self) -> list[str]:
+        keys = []
+        if self.GEMINI_API_KEYS_STR:
+            keys.extend([k.strip() for k in self.GEMINI_API_KEYS_STR.split(",") if k.strip()])
+        if self.GEMINI_API_KEY and self.GEMINI_API_KEY not in keys:
+            keys.append(self.GEMINI_API_KEY)
+        return keys
+
+    @property
+    def fallback_models(self) -> list[str]:
+        # Priority order of Gemini models for OCR data extraction
+        default_chain = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-pro", "gemini-flash-latest"]
+        if self.GEMINI_MODEL_NAME and self.GEMINI_MODEL_NAME not in default_chain:
+            return [self.GEMINI_MODEL_NAME] + default_chain
+        # Ensure preferred model is first
+        chain = [self.GEMINI_MODEL_NAME] + [m for m in default_chain if m != self.GEMINI_MODEL_NAME]
+        return chain
+
     # Database Configuration
     DATABASE_URL: str = "sqlite:///./invoices.db"
 
@@ -25,3 +45,4 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
+
