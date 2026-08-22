@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Form
 from typing import List
 import logging
 import hashlib
@@ -25,7 +25,7 @@ import asyncio
 # Concurrency Semaphore to process batch uploads smoothly (30-40 invoices per day)
 batch_semaphore = asyncio.Semaphore(1)
 
-async def process_invoice(filename: str, content: bytes, content_type: str):
+async def process_invoice(filename: str, content: bytes, content_type: str, allow_duplicates: bool = False):
     """
     Background worker function that runs the full pipeline for one file,
     throttled to safely process large multi-invoice uploads (30-40 files/day).
@@ -34,14 +34,17 @@ async def process_invoice(filename: str, content: bytes, content_type: str):
         try:
             file_hash = hashlib.sha256(content).hexdigest()
             
-            # 0. Duplicate Checks (Filename & Hash) before extraction
-            if db_service.is_file_processed(filename):
-                logger.info(f"Skipping extraction for {filename} - filename already in database.")
-                return
+            # 0. Duplicate Checks (Filename & Hash) before extraction (skipped if allow_duplicates=True)
+            if not allow_duplicates:
+                if db_service.is_file_processed(filename):
+                    logger.info(f"Skipping extraction for {filename} - filename already in database.")
+                    return
 
-            if db_service.is_hash_processed(file_hash):
-                logger.info(f"Skipping extraction for {filename} - content duplicate (hash match).")
-                return
+                if db_service.is_hash_processed(file_hash):
+                    logger.info(f"Skipping extraction for {filename} - content duplicate (hash match).")
+                    return
+            else:
+                logger.info(f"Allowing duplicate invoice upload for {filename} (allow_duplicates=True).")
 
             # 1. OCR / Extraction (Gemini AI) with Multi-Model Fallback
             raw_data, raw_ai_response = await extract_data_from_file(filename, content, content_type)
@@ -74,7 +77,8 @@ async def process_invoice(filename: str, content: bytes, content_type: str):
 @router.post("/upload/", tags=["Invoices"])
 async def upload_invoices(
     background_tasks: BackgroundTasks, 
-    files: List[UploadFile] = File(...)
+    files: List[UploadFile] = File(...),
+    allow_duplicates: bool = Form(False)
 ):
     """
     Upload Multiple Invoices (PDF/JPG/PNG).
@@ -98,8 +102,8 @@ async def upload_invoices(
         # Read content before connection closes
         content = await file.read()
         
-        # Add to background worker
-        background_tasks.add_task(process_invoice, file.filename, content, file.content_type)
+        # Add to background worker with allow_duplicates option
+        background_tasks.add_task(process_invoice, file.filename, content, file.content_type, allow_duplicates)
 
     return {
         "message": "Files queued for processing successfully",

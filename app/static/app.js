@@ -74,10 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadBtn.disabled = true;
         uploadBtn.innerText = 'Uploading...';
 
+        const allowDuplicatesToggle = document.getElementById('allow-duplicates-toggle');
+        const allowDuplicates = allowDuplicatesToggle ? allowDuplicatesToggle.checked : false;
+
         const formData = new FormData();
         selectedFiles.forEach(file => {
             formData.append('files', file);
         });
+        formData.append('allow_duplicates', allowDuplicates);
 
         try {
             const response = await fetch('/api/v1/upload/', {
