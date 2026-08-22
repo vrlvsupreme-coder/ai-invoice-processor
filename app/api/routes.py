@@ -20,45 +20,56 @@ agent = AIVerificationAgent(db_service=db_service)
 sheets_service = GoogleSheetsService()
 export_service = ExportService(db_service=db_service)
 
+import asyncio
+
+# Concurrency Semaphore to process batch uploads smoothly (30-40 invoices per day)
+batch_semaphore = asyncio.Semaphore(1)
+
 async def process_invoice(filename: str, content: bytes, content_type: str):
     """
-    Background worker function that runs the full pipeline for one file.
+    Background worker function that runs the full pipeline for one file,
+    throttled to safely process large multi-invoice uploads (30-40 files/day).
     """
-    try:
-        file_hash = hashlib.sha256(content).hexdigest()
-        
-        # 0. Duplicate Checks (Filename & Hash) before extraction
-        if db_service.is_file_processed(filename):
-            logger.info(f"Skipping extraction for {filename} - filename already in database.")
-            return
+    async with batch_semaphore:
+        try:
+            file_hash = hashlib.sha256(content).hexdigest()
+            
+            # 0. Duplicate Checks (Filename & Hash) before extraction
+            if db_service.is_file_processed(filename):
+                logger.info(f"Skipping extraction for {filename} - filename already in database.")
+                return
 
-        if db_service.is_hash_processed(file_hash):
-            logger.info(f"Skipping extraction for {filename} - content duplicate (hash match).")
-            return
+            if db_service.is_hash_processed(file_hash):
+                logger.info(f"Skipping extraction for {filename} - content duplicate (hash match).")
+                return
 
-        # 1. OCR / Extraction (Gemini AI)
-        raw_data, raw_ai_response = await extract_data_from_file(filename, content, content_type)
-        
-        # 2. AI Verification Agent Pipeline
-        verification_result = agent.run_pipeline(
-            filename=filename,
-            file_hash=file_hash,
-            raw_data=raw_data,
-            raw_ai_response=raw_ai_response
-        )
-        
-        # 3. Google Sheets Integration (Only if NOT a duplicate invoice)
-        if verification_result.verification_status != VerificationStatus.DUPLICATE:
-            sheets_service.append_data(verification_result)
-        else:
-            logger.info(f"Skipping Google Sheets append for duplicate invoice metadata: {filename}")
-        
-        # 4. Local DB Persistence
-        db_service.save_invoice(verification_result)
-        
-        logger.info(f"Successfully processed {filename} -> Status: {verification_result.verification_status.value}")
-    except Exception as e:
-        logger.error(f"Error processing {filename}: {e}")
+            # 1. OCR / Extraction (Gemini AI) with Multi-Model Fallback
+            raw_data, raw_ai_response = await extract_data_from_file(filename, content, content_type)
+            
+            # 2. AI Verification Agent Pipeline
+            verification_result = agent.run_pipeline(
+                filename=filename,
+                file_hash=file_hash,
+                raw_data=raw_data,
+                raw_ai_response=raw_ai_response
+            )
+            
+            # 3. Google Sheets Integration (Only if NOT a duplicate invoice)
+            if verification_result.verification_status != VerificationStatus.DUPLICATE:
+                sheets_service.append_data(verification_result)
+            else:
+                logger.info(f"Skipping Google Sheets append for duplicate invoice metadata: {filename}")
+            
+            # 4. Local DB Persistence
+            db_service.save_invoice(verification_result)
+            
+            logger.info(f"Successfully processed {filename} -> Status: {verification_result.verification_status.value}")
+        except Exception as e:
+            logger.error(f"Error processing {filename}: {e}")
+        finally:
+            # Rate pacing delay to safely stay under Gemini Free Tier limits during 30-40 batch uploads
+            await asyncio.sleep(4)
+
 
 @router.post("/upload/", tags=["Invoices"])
 async def upload_invoices(
