@@ -224,6 +224,14 @@ h2 {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--glass-border);
     border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.3s ease;
+}
+
+.toggle-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(99, 102, 241, 0.4);
 }
 
 .toggle-label {
@@ -247,7 +255,6 @@ h2 {
     height: 0;
     position: absolute;
     margin: 0;
-    pointer-events: none;
 }
 
 .slider {

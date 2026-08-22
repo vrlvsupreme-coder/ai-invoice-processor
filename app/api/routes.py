@@ -80,8 +80,8 @@ async def process_invoice(filename: str, content: bytes, content_type: str, allo
                 allow_duplicates=is_allow_dup
             )
             
-            # 3. Google Sheets Integration (Only if NOT a duplicate invoice)
-            if verification_result.verification_status != VerificationStatus.DUPLICATE:
+            # 3. Google Sheets Integration (Always append if allow_duplicates=True or if NOT a duplicate invoice)
+            if is_allow_dup or verification_result.verification_status != VerificationStatus.DUPLICATE:
                 sheets_service.append_data(verification_result)
             else:
                 logger.info(f"Skipping Google Sheets append for duplicate invoice metadata: {filename}")
